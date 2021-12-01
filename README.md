@@ -23,7 +23,9 @@ npm ci
 ```
 
 ## Deployment
-Firstly, Clasp needs access to push using your Google account. This can be achieved by running:
+To enable Google Apps Script API for your user, go to [Apps Script Settings](https://script.google.com/home/usersettings) and toggle Google Apps Script API to on.
+
+Clasp needs access to push using your Google account. This can be achieved by running:
 
 ```shell
 npx clasp login
