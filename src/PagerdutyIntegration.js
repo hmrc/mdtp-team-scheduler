@@ -5,7 +5,7 @@
 function test_pgGetScheduleOverrides() {
   var config = getScriptConfiguration();
   var token = getPagerdutyAPIToken();
-//  postSlackMeesage(bearer,"@peter.harper","Test");
+//  postSlackMeesage(bearer,"@david.goodall","Test");
   testDay = new Date("2021-01-26");
   pgGetScheduleOverrides(token,"PGAI4XV",testDay);
 }
@@ -51,7 +51,7 @@ Logger.log("GetOverrides: " + MESSAGE_ENDPOINT)
 function test_pgGetUserIdByEmail() {
   var config = getScriptConfiguration();
   var token = getPagerdutyAPIToken();
-//  postSlackMeesage(bearer,"@peter.harper","Test");
+//  postSlackMeesage(bearer,"@david.goodall","Test");
   pgGetUserIdByEmail(token,"andrew.csoka@digital.hmrc.gov.uk");
 }
 
@@ -85,7 +85,7 @@ function pgGetUserIdByEmail(pgToken,email) {
 function test_pgDeleteOverride() {
   var config = getScriptConfiguration();
   var token = getPagerdutyAPIToken();
-//  postSlackMeesage(bearer,"@peter.harper","Test");
+//  postSlackMeesage(bearer,"@david.goodall","Test");
 
   pgDeleteOverride(token,"PGAI4XV","Q1JW52G50UEG9V");
 }
@@ -116,7 +116,7 @@ function pgDeleteOverride(pgToken,scheduleId,overrideId) {
 function test_pgCreateScheduleOverride() {
   var config = getScriptConfiguration();
   var token = getPagerdutyAPIToken();
-//  postSlackMeesage(bearer,"@peter.harper","Test");
+//  postSlackMeesage(bearer,"@david.goodall","Test");
   testDay = new Date("2021-01-30");
   pgCreateScheduleOverride(token,"PGAI4XV",testDay,"POWPO6E");
 }
@@ -124,11 +124,17 @@ function test_pgCreateScheduleOverride() {
 function pgCreateScheduleOverride(pgToken,scheduleId,day,userId) {
   var formattedDay = toYYYYMMDD(day);
 
+  // Calculate daylight savings time
+  var month = day.getMonth();
+  var hourOffset = 0;
+  if (month > 3 && month < 11) {
+    hourOffset = 1
+  }
   var MESSAGE_ENDPOINT = 'https://api.pagerduty.com/schedules/' + scheduleId + '/overrides';
   var payload = {
     "override": {
-        "start": formattedDay + "T09:00:00-00:00",
-        "end": formattedDay + "T17:00:00-00:00",
+        "start": formattedDay + "T09:00:00+0" + hourOffset + ":00",
+        "end": formattedDay + "T17:00:00+0" + hourOffset + ":00",
         "user": {
             "id": userId,
             "type": "user_reference"

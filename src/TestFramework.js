@@ -16,7 +16,6 @@ function assertEquals(name,expected,actual) {
   }
 }
 
-
 function startTests() {
   __testSuccess = true;
   __assertionsFailed = 0;

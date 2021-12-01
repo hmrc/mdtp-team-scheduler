@@ -5,7 +5,7 @@
 function test_performPostMessage() {
   var config = getScriptConfiguration();
   var bearer = getSlackBotBearerToken();
-  postSlackMeesage(bearer,"@peter.harper","Test" + bearer.length);
+  postSlackMeesage(bearer,"@david.goodall","Test :pair:-less :pepe-sad: ");
 }
 
 function postSlackMeesage(bearer, channel, message) {
@@ -26,12 +26,19 @@ function postSlackMeesage(bearer, channel, message) {
     payload            : JSON.stringify(payload),
     muteHttpExceptions : true,
   })
+
+  jsonRes = JSON.parse(res);
+  if (!jsonRes.ok) {
+    throw new Error(
+      'Failed to post messsage to channel ' + channel + ": " + jsonRes.error
+    );
+  }
 }
 
 function test_getSlackUserIdByEmail() {
   var config = getScriptConfiguration();
   var bearer = config["Slack Bearer Token"];
-  Logger.log(getSlackUserIdByEmail(bearer,"danial.khoshkhou@digital.hmrc.gov.uk"));
+  Logger.log(getSlackUserIdByEmail(bearer,"david.goodall@digital.hmrc.gov.uk"));
 }
 
 //
@@ -153,8 +160,8 @@ function getSlackUsergroups(bearer) {
 function test_setSlackUsergroupsUsers() {
   var config = getScriptConfiguration();
   var bearer = config["Slack Bearer Token"];
-  Logger.log(setSlackUsergroupsUsers(bearer,"S0PFMKKCM","U8VRX6V24,UM1JMRUJ0,UP0NSMH6F"));
-  //UP0NSMH6F
+  Logger.log(setSlackUsergroupsUsers(bearer,"S0PFMKKCM","U8VRX6V24,UM1JMRUJ0,UHJPML18B"));
+  //UHJPML18B
 }
 
 //
@@ -198,9 +205,9 @@ function test_setSlackReminder() {
   var tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
   Logger.log("Tomorrow = " + tomorrow);
-  Logger.log(setSlackReminder(bearer,"UP0NSMH6F",tomorrow,"Remind @peter.harper"));
-//  Logger.log(setSlackReminder(bearer,"#tmp-ph-test",tomorrow,"Remind @peter.harper"));
-  //UP0NSMH6F
+  Logger.log(setSlackReminder(bearer,"UHJPML18B",tomorrow,"Remind @david.goodall"));
+//  Logger.log(setSlackReminder(bearer,"#tmp-ph-test",tomorrow,"Remind @david.goodall"));
+  //UHJPML18B
 }
 
 //
@@ -235,28 +242,3 @@ function setSlackReminder(bearer,target,time,message) {
 //  Logger.log("Response json: " + JSON.parse(res).user.id);
   return(jsonRes);  
 }
-/*
-function toSlackTime(time) {
-  x = time.getTime() / 1000;
-  if (Math.abs(x) < 1.0) {
-    var e = parseInt(x.toString().split('E-')[1]);
-    if (e) {
-        x *= Math.pow(10,e-1);
-        x = '0.' + (new Array(e)).join('0') + x.toString().substring(2);
-    }
-  } else {
-    var e = parseInt(x.toString().split('+')[1]);
-    if (e > 20) {
-        e -= 20;
-        x /= Math.pow(10,e);
-        x += (new Array(e+1)).join('0');
-    }
-  }
-  return x;
-}
-
-function test_toSlackTime() {
-  var time = new Date();
-  Logger.log(time.getTime().toString());
-}
-*/

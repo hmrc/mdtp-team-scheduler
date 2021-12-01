@@ -1,4 +1,3 @@
-// This is a test comment 
 function team_runTests() {
   startTests();
   test_getPermanentGroupMemberIds();
@@ -12,14 +11,31 @@ function team_runTests() {
 }
 
 function onOpen() {
-  SpreadsheetApp.getUi()
+  var config = getScriptConfiguration();
+  var supportMode = config["Support Mode"];
+
+  if (isEqual(supportMode,"Pairs")) {
+    SpreadsheetApp.getUi()
       .createMenu('Team Functions')
       .addItem('Synchronise Calendar', 'getTeamEvents')
       .addItem('Post todays pairs', 'postPairsToChannel')
       .addItem('Post tomorrows pairs', 'postTomorrowsPairsToChannel')
+      .addItem('Swap support person', 'swapSupportPerson')
+      .addItem('Setup support pair events', 'createSupportEventsUsingPairs')
       .addSeparator()
       .addItem('Configure Team Properties', 'setupTeamProperties')
       .addToUi();
+  } else {
+    SpreadsheetApp.getUi()
+      .createMenu('Team Functions')
+      .addItem('Synchronise Calendar', 'getTeamEvents')
+      .addItem('Post todays pairs', 'postPairsToChannel')
+      .addItem('Post tomorrows pairs', 'postTomorrowsPairsToChannel')
+      .addItem('Swap support person', 'swapSupportPerson')
+      .addSeparator()
+      .addItem('Configure Team Properties', 'setupTeamProperties')
+      .addToUi();
+  }
 }
 
 //
@@ -108,9 +124,17 @@ function createSupportEvents() {
   var config = getScriptConfiguration();
   var calendarName = config["Team Support Calendar"];
   var dateRow = config["Date Row in Rota"];
+  var supportMode = config["Support Mode"];
   var pgToken = getPagerdutyAPIToken();
   var pgScheduleId = config["Pager Duty Schedule Id"];
   var today = new Date();
+
+  // Only let this function run if in Single support mode
+  if (supportMode != "Single") {
+    throw new Error(
+      'createSupportEvents called when system is configured with "Support Mode" of: ' + supportMode
+    );
+  }
 
   // forename -> email address lookup map
   var slackEmails = getForenameToEmails();
@@ -154,11 +178,134 @@ function createSupportEvents() {
     supportDate = new Date(supportDate.getTime()+24*60*60*1000);
   }
 }
+//
+//  Loops through the currently selected rows, creating support calendar events,
+//  deleting any pre-existing support events
+//  NB: This adds the emails to the description field to enable UID lookups in the
+//      swapSupportEvents function
+//
+function createSupportEventsUsingPairs() {
+  // We will ignore any days that are labelled as anything in this list
+  var specialDays = ["xmas day","boxing day","new year","bank holiday","bh"]
+ 
+  var config = getScriptConfiguration();
+  var calendarName = config["Team Support Calendar"];
+  var dateRow = config["Date Row in Rota"];
+  var supportMode = config["Support Mode"];
+  var supportModePairCol = config["Support Mode Pairs Column"];
+  var supportModePairNumCol = config["Support Mode Pairs Num Column"];
+  var pairTab = config["Pair Tab"];
+  var pgToken = getPagerdutyAPIToken();
+  var pgScheduleId = config["Pager Duty Schedule Id"];
+  var today = new Date();
+  
+  // Only let this function run if in Pairs support mode
+  if (supportMode != "Pairs") {
+    throw new Error(
+      'createSupportEventsUsingPairs called when system is configured with "Support Mode" of: ' + supportMode
+    );
+  }
+
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  if (sheet.getName() != pairTab) {
+    throw new Error(
+      "createSupportEventsUsingPairs called when " + pairTab + " tab isn't selected"
+    );
+  }
+
+  // forename -> email address lookup map
+  var slackEmails = getForenameToEmails();
+  
+  //
+  // Loop through each day, raising calendar events
+  //
+  var calendar = CalendarApp.getCalendarsByName(calendarName)[0];
+  var rotaColumn = SpreadsheetApp.getActiveSpreadsheet().getActiveCell().getColumn();
+  var rotaRangeValues = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet().getRange(dateRow,rotaColumn,6,1).getValues();
+
+  //
+  // Get reference data for currently selected rows
+  //
+  Logger.log("here");
+  var startRow = SpreadsheetApp.getActiveSpreadsheet().getActiveRange().getRow()
+  var numSelectedRows = SpreadsheetApp.getActiveSpreadsheet().getActiveRange().getNumRows()
+  var dateRowValues = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet().getRange(startRow,1,numSelectedRows,100).getValues();
+  for (var r=startRow; r < (startRow+numSelectedRows); r++) {
+    var day = dateRowValues[r-startRow][0]
+//Logger.log(dateRowValues);
+//Logger.log(day);
+
+  // Delete support event(s) for the day
+    var events = calendar.getEventsForDay(day);
+    var found = false;
+    for (var j = 0; j < events.length; j++) {
+      if (isSupportEvent(events[j].getTitle())) {
+        events[j].deleteEvent();
+      }
+    } // loop over events
+
+    var pairNumCol = dateRowValues[r-startRow][supportModePairNumCol];
+    var pairCol = dateRowValues[r-startRow][supportModePairCol];
+//Logger.log(pairCol);
+//    Logger.log(isNaN(parseInt(pairCol)));
+
+
+    // Ignore weekends
+    if (day.getDay() == 6 || day.getDay() == 0) {continue}
+
+//Logger.log(pairCol);
+
+    // If the pair number cell contains something other than an integer, we assume it is the name of a single support engineer
+    if (isNaN(parseInt(pairNumCol))) {
+      pairNameString = pairNumCol;
+    } else {
+      // Don't process rows without a pair number
+      if (isNaN(parseInt(pairCol))) {continue}
+      pairNameString = constructPairString(SpreadsheetApp.getActiveSpreadsheet().getActiveSheet().getRange(r,pairCol,1,3).getValues()[0],{});
+    }
+      Logger.log(pairNameString)
+
+      var supportEventTitle = pairNameString + " on support";
+      pairNames = pairNameString.split(" / ");
+      Logger.log(pairNames);
+      supportEmails = [];
+      for (pn = 0; pn < pairNames.length; pn++) {
+        if (slackEmails[pairNames[pn]]) {
+          supportEmails.push(slackEmails[pairNames[pn]]);
+        } else {
+          throw new Error(
+            "Failed to find slack email address for " + pairNames[pn] + ".  Check your data in TeamSlackHandles tab."
+          );          
+        }
+      }
+      Logger.log(supportEmails);
+      calendar.createAllDayEvent(supportEventTitle, day,{description: supportEmails.toString()});
+
+
+      // If PagerDuty is configured, and the support day is in the future, 
+      // attempt to amend the overrides for the day
+      if (!isEqual(pgToken,"") && !isEqual(pgScheduleId,"") && day > today) {
+        removePgOverridesForDay(new Date(day));
+Logger.log("Processing day " + day);
+
+        for (se = 0; se < supportEmails.length; se++) {
+Logger.log("processing '" + pgGetUserIdByEmail(pgToken,supportEmails[se]) + "'");
+          var pgId = pgGetUserIdByEmail(pgToken,supportEmails[se])
+          if (pgId) {
+            Logger.log("Adding override for " + supportEmails[se]);
+            pgCreateScheduleOverride(pgToken,pgScheduleId,new Date(day),pgId);
+          }
+        }
+      }
+
+//    supportDate = new Date(supportDate.getTime()+24*60*60*1000);
+  } // Loop over rows
+}
 
 
 function test_getPermanentGroupMemberIds() {
   var members = getPermanentGroupMemberIds();
-  assertEquals("Check getPermanentGroupMemberIds list","UP0NSMH6F,ULMBYBCFL,U66CSEUEM",members);
+  assertEquals("Check getPermanentGroupMemberIds list","UHJPML18B,ULMBYBCFL,U66CSEUEM",members);
 }
 
 //
@@ -208,22 +355,35 @@ function swapSupportPerson() {
       if (lastSupportEvent) {break;}
     }
     if (todaysSupportEvent && lastSupportEvent) {
-      todaysEmail = todaysSupportEvent.getDescription();
-      lastEmail   = lastSupportEvent.getDescription();
 
-      todaysUser = getSlackUserByEmail(bearer,todaysEmail);
-      lastUser   = getSlackUserByEmail(bearer,lastEmail);
-      // Only swap if the user has changed
+      todaysEmailsString = todaysSupportEvent.getDescription();
+      todaysEmails = todaysSupportEvent.getDescription().split(",");
+      lastEmailsString = lastSupportEvent.getDescription();
+      lastEmails = lastSupportEvent.getDescription().split(",");
+      var todaysSlackIds = [];
+      for (var i = 0; i<todaysEmails.length; i++) {
+        todaysSlackIds.push(getSlackUserByEmail(bearer, todaysEmails[i]).id);
+      }
+      var lastSlackIds = [];
+      for (var i = 0; i<lastEmails.length; i++) {
+        lastSlackIds.push(getSlackUserByEmail(bearer, lastEmails[i]).id);
+      }
+ 
+      // Only swap if the users have changed
       // This comparison is odd, as == doesn't seem to work here hence using > and <
-      if ( !(todaysEmail > lastEmail || todaysEmail < lastEmail) ) {
-        postSlackMeesage(bearer, teamChannel, "Support person stays as <@" + todaysUser.id + ">.");
-//        postSlackMeesage(bearer, "@peter.harper", "Support person stays as <@" + todaysUser.id + ">.");
+      if ( !(todaysEmailsString > lastEmailsString || todaysEmailsString < lastEmailsString) ) {
+        postSlackMeesage(bearer, teamChannel, "Support stays with <@" + todaysSlackIds.join(">, <@") + ">");
+//        postSlackMeesage(bearer, "@david.goodall", "Support stays with <@" + todaysSlackIds.join(">, <@") + ">");
       } else {
-        // Remove and add support persons to the list, update the usergroup and post in channel
-        newusers = removeValue(usergroup.users, todaysUser.id)
-        newusers = removeValue(newusers, lastUser.id)
-        newusers = newusers.concat(todaysUser.id);
-      
+        // Remove the last support persons slack ids from the group
+        for (var i = 0; i<lastSlackIds.length; i++) {
+            newusers = removeValue(usergroup.users, lastSlackIds[i]);
+        }
+        // Add todays support person slack ids to the group
+        for (var i = 0; i<todaysSlackIds.length; i++) {
+            newusers = removeValue(newusers, todaysSlackIds[i])
+            newusers = newusers.concat(todaysSlackIds[i]);
+        }
         // Remove and then re-add permanent members of the group
         permanentGroupMembers = getPermanentGroupMemberIds();
         for (var i = 0; i < permanentGroupMembers.length; i++) {
@@ -232,8 +392,8 @@ function swapSupportPerson() {
         }
     
         setSlackUsergroupsUsers(bearer,usergroup.id,newusers.toString());
-        postSlackMeesage(bearer, teamChannel, "Devops Support person swapped over in @" + slackSupportGroup + "; <@" + todaysUser.id + "> takes over from <@" + lastUser.id + ">");
-//        postSlackMeesage(bearer, "@peter.harper", "Support person swapped over in @" + slackSupportGroup + "; <@" + todaysUser.id + "> takes over from <@" + lastUser.id + ">");
+        postSlackMeesage(bearer, teamChannel, "Devops Support swapped over in @" + slackSupportGroup + "; <@" + todaysSlackIds.join(">, <@") + "> takes over from <@" + lastSlackIds.join(">, <@") + ">");
+//        postSlackMeesage(bearer, "@david.goodall", "Devops Support swapped over in @" + slackSupportGroup + "; <@" + todaysSlackIds.join(">, <@") + "> takes over from <@" + lastSlackIds.join(">, <@") + ">");
       }
     } else {
         if (!lastSupportEvent) {
@@ -262,7 +422,7 @@ function postPairsToChannel() {
   var pairMessage = getPairMessage(new Date(),pairingTemplateHREF,getPairHangouts(),"Todays pairs",pairChangeMessage);
   if (pairMessage) {
     postSlackMeesage(bearer, teamChannel, pairMessage);
-//    postSlackMeesage(bearer, "@peter.harper", pairMessage);
+//    postSlackMeesage(bearer, "@david.goodall", pairMessage);
   }
 }
 
@@ -282,7 +442,7 @@ function postTomorrowsPairsToChannel() {
   var pairMessage = getPairMessage(tomorrow,pairingTemplateHREF,getPairHangouts(),"Tomorrows pairs",pairChangeMessage);
   if (pairMessage) {
     postSlackMeesage(bearer, teamChannel, pairMessage);
-//    postSlackMeesage(bearer, "@peter.harper", pairMessage);
+//    postSlackMeesage(bearer, "@david.goodall", pairMessage);
   }
 }
 
@@ -422,7 +582,7 @@ function test_getDaysPairRow() {
   testDay.setDate(testDay.getDate());
   assertEquals("7/12/2020 row found",164,getDaysPairRow(testDay));  
 
-  testDay.setDate(testDay.getDate() + 200);
+  testDay.setDate(testDay.getDate() + 2000);
   assertEquals("Seeking days pair role for day without pairing data",null,getDaysPairRow(testDay));
 }
 
@@ -594,10 +754,10 @@ function test_getScriptConfiguration() {
 function getScriptConfiguration() {
   // Read the script parameters in ScriptArgs sheet and pick out the relevant values
   var argsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("ScriptArgs");
-  var argsRange = argsSheet.getRange(1,1,50,2);
+  var argsRange = argsSheet.getRange(1,1,100,2);
   var argsRangeValues = argsRange.getValues();
   var map = {};
-  for (var i=1;i<50; i++) {
+  for (var i=1;i<100; i++) {
     paramName = argsRangeValues[i][0];
     paramVal = argsRangeValues[i][1]; 
     if (paramName) {

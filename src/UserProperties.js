@@ -53,5 +53,7 @@ function getPagerdutyAPIToken() {
 
 function getProperties() {
    var userProperties = PropertiesService.getUserProperties();
+   var cipher = new Cipher(aesKey, 'aes');
   Logger.log(userProperties.getProperties());
+  Logger.log(cipher.decrypt(userProperties.getProperty("Slack Bearer Token")));
 }
