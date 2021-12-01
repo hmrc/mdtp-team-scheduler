@@ -5,8 +5,8 @@ function team_runTests() {
   test_constructPairString();
   test_getSupportEventForDay();
   test_isSupportEvent();
-  test_getPairMessage()
-  test_getDaysPairRow()
+  test_getPairMessage();
+  test_getDaysPairRow();
   endTests();
 }
 
