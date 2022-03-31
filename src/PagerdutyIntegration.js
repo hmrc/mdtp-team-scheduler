@@ -125,11 +125,11 @@ function pgCreateScheduleOverride(pgToken,scheduleId,day,userId) {
   var formattedDay = toYYYYMMDD(day);
 
   // Calculate daylight savings time
-  var month = day.getMonth();
-  var hourOffset = 0;
-  if (month > 3 && month < 11) {
-    hourOffset = 1
-  }
+  // Returns in minutes the difference between UTC time and local time
+  var timezoneOffset = day.getTimezoneOffset()
+  // Calculates how many hours of offset should be added
+  var hourOffset = timezoneOffset/-60;
+
   var MESSAGE_ENDPOINT = 'https://api.pagerduty.com/schedules/' + scheduleId + '/overrides';
   var payload = {
     "override": {
