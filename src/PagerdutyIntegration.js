@@ -125,11 +125,12 @@ function pgCreateScheduleOverride(pgToken,scheduleId,day,userId) {
   var formattedDay = toYYYYMMDD(day);
 
   // Calculate daylight savings time
-  var month = day.getMonth();
   var hourOffset = 0;
-  if (month > 3 && month < 11) {
-    hourOffset = 1
+  var dayString = day.toString()
+  if (dayString.indexOf("Summer") >= 0) {
+    hourOffset = 1;
   }
+
   var MESSAGE_ENDPOINT = 'https://api.pagerduty.com/schedules/' + scheduleId + '/overrides';
   var payload = {
     "override": {
