@@ -125,11 +125,10 @@ function pgCreateScheduleOverride(pgToken,scheduleId,day,userId) {
   var formattedDay = toYYYYMMDD(day);
 
   // Calculate daylight savings time
-  var hourOffset = 0;
-  var dayString = day.toString()
-  if (dayString.indexOf("Summer") >= 0) {
-    hourOffset = 1;
-  }
+  // Returns in minutes the difference between UTC time and local time
+  var timezoneOffset = day.getTimezoneOffset()
+  // Calculates how many hours of offset should be added
+  var hourOffset = timezoneOffset/-60;
 
   var MESSAGE_ENDPOINT = 'https://api.pagerduty.com/schedules/' + scheduleId + '/overrides';
   var payload = {
