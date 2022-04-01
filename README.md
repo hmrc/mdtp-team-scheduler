@@ -11,6 +11,12 @@ This project uses [Clasp](https://github.com/google/clasp) for development of Go
 
 <img src="./docs/images/mdtp-team-scheduler.png">
 
+### What is appsscript.json file?
+
+The appsscript.json file is a hidden manifest file that allows the Timezone that the script is running in to be set. For the mdtp-team-scheduler, this should always be set to "Europe/London".
+
+To see this file in the Google AppsScript console, enable it in Project Settings > Show "appsscript.json" manifest file in editor.
+
 ## Development
 
 ### Requirements
