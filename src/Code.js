@@ -159,7 +159,10 @@ function createSupportEvents() {
       } // loop over events
 
       var supportEventTitle = supportPerson + " on support";
-      calendar.createAllDayEvent(supportEventTitle, supportDate,{description: slackEmails[supportPerson]});
+      calendar.createAllDayEvent(supportEventTitle, supportDate, {
+        description: slackEmails[supportPerson],
+        guests: slackEmails[supportPerson]
+      });
       Logger.log("User " + supportPerson + " " + supportDate);
 
       // If PagerDuty is configured, and the support day is in the future, 
