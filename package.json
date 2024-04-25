@@ -8,6 +8,6 @@
   },
   "license": "Apache-2.0",
   "devDependencies": {
-    "@google/clasp": "^2.4.1"
+    "@google/clasp": "^2.4.2"
   }
 }
